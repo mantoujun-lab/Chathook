@@ -32,3 +32,12 @@ dev = [
     "pre-commit>=4.6.2",
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+# 显式指定测试目录, 避免在某些环境 (如 CI 安装为 wheel 后) 下 pytest
+# 扫不到 tests/test_health.py 导致 "collected 0 items" 退出码 5
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+# 把项目根目录加到 sys.path 头部, 使 `from main import app` 在 CI 上也能工作
+pythonpath = ["."]
