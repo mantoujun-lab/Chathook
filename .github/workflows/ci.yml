@@ -1,0 +1,46 @@
+# This workflow is adapted from GitHub official starter templates:
+# - Python: https://github.com/actions/starter-workflows/blob/main/ci/python-app.yml
+# - Node.js: https://github.com/actions/starter-workflows/blob/main/ci/node.js.yml
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the latest version of uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Test with pytest
+        run: uv run pytest
+
+  frontend:
+    name: Frontend (Nuxt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: dashboard/package-lock.json
+      - name: Install dependencies
+        working-directory: dashboard
+        run: npm ci
+      - name: Build
+        working-directory: dashboard
+        run: npm run build
