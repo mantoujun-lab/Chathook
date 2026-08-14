@@ -17,7 +17,7 @@ jobs:
     name: Backend (Python)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install the latest version of uv
         # 注意: astral-sh/setup-uv 仓库没有维护 vN 这种纯主版本 moving tag
         # (只有 v7.6 / v7.5 这种 minor 级 moving tag), 必须使用精确 patch 版本.
@@ -35,7 +35,7 @@ jobs:
     name: Frontend (Nuxt)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Use Node.js 24
         uses: actions/setup-node@v4
         with:
