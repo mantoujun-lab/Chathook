@@ -20,42 +20,9 @@ interface SendResult {
   error_message?: string
 }
 
-// TODO: 后端跑起来后替换为 useFetch("/api/webhooks")
-const MOCK_HOOKS: WebhookConfig[] = [
-  {
-    id: "feishu-demo",
-    name: "飞书-产品通知",
-    platform: "feishu",
-    url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
-    secret: null,
-    extra: {},
-    enabled: true,
-  },
-  {
-    id: "dingtalk-demo",
-    name: "钉钉-运维告警",
-    platform: "dingtalk",
-    url: "https://oapi.dingtalk.com/robot/send?access_token=xxx",
-    secret: "SECxxxx",
-    extra: {},
-    enabled: true,
-  },
-  {
-    id: "custom-demo",
-    name: "自定义-内部服务",
-    platform: "custom",
-    url: "https://api.example.com/webhook",
-    secret: null,
-    extra: {},
-    enabled: false,
-  },
-]
+const { data: webhooks } = await useFetch<WebhookConfig[]>("/api/webhooks")
 
-const { data: webhooks } = await useAsyncData<WebhookConfig[]>("mock-hooks", () =>
-  Promise.resolve(MOCK_HOOKS)
-)
-
-const selected = ref<string>(MOCK_HOOKS[0]?.id ?? "")
+const selected = ref<string>("")
 const title = ref("")
 const text = ref("")
 const atAll = ref(false)
@@ -75,10 +42,10 @@ async function send() {
   sending.value = true
   lastResult.value = null
   try {
-    // TODO: 后端跑起来后替换为真实 $fetch
-    const mockOk = selected.value !== "custom-demo"
-    await new Promise((r) => setTimeout(r, 500))
+    // TODO: 适配器实现后替换为真实 $fetch("/api/send")
     const hook = webhooks.value?.find((w) => w.id === selected.value)
+    const mockOk = hook?.enabled ?? false
+    await new Promise((r) => setTimeout(r, 500))
     lastResult.value = mockOk
       ? {
           success: true,
@@ -155,10 +122,10 @@ async function send() {
     />
 
     <UCard variant="soft" class="text-sm text-gray-600">
-      💡 当前展示为 Mock 数据，等后端跑通后，将
-      <code class="px-1 rounded bg-gray-200">useAsyncData</code>
-      替换为 <code class="px-1 rounded bg-gray-200">useFetch</code>，<code class="px-1 rounded bg-gray-200">send()</code>
-      替换为真实的 <code class="px-1 rounded bg-gray-200">$fetch("/api/send")</code> 即可。
+      💡 Webhook 列表已从后端加载
+      <code class="px-1 rounded bg-gray-200">/api/webhooks</code>.
+      发送功能待后端适配器实现后接通
+      <code class="px-1 rounded bg-gray-200">POST /api/send</code>.
     </UCard>
   </div>
 </template>

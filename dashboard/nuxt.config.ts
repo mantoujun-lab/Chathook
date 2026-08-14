@@ -16,11 +16,10 @@ export default defineNuxtConfig({
       fontsource: false,
     },
   },
-  nitro: {
-    devProxy: {
-      "/api": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
-    },
+  routeRules: {
+    // 开发/生产均将后端 API 代理到 FastAPI, ** 保留 /api 之后的子路径
+    "/api/**": { proxy: { to: "http://127.0.0.1:8000/api/**" } },
+    "/health": { proxy: { to: "http://127.0.0.1:8000/health" } },
   },
   runtimeConfig: {
     public: {

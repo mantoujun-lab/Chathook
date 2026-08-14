@@ -17,7 +17,16 @@ import time
 
 from fastapi import FastAPI
 
+from src.webhook.api import router as webhook_router
+
 app = FastAPI(title="Chathook", version="0.1.0")
+app.include_router(webhook_router)
+
+
+@app.get("/health")
+def health() -> dict[str, str]:
+    """健康检查."""
+    return {"status": "ok"}
 
 # 项目根目录 (即本文件所在目录)
 ROOT = os.path.dirname(os.path.abspath(__file__))

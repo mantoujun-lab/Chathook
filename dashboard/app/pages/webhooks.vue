@@ -13,40 +13,7 @@ interface WebhookConfig {
   enabled: boolean
 }
 
-// TODO: 后端跑起来后替换为 useFetch("/api/webhooks")
-const MOCK_HOOKS: WebhookConfig[] = [
-  {
-    id: "feishu-demo",
-    name: "飞书-产品通知",
-    platform: "feishu",
-    url: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx",
-    secret: null,
-    extra: {},
-    enabled: true,
-  },
-  {
-    id: "dingtalk-demo",
-    name: "钉钉-运维告警",
-    platform: "dingtalk",
-    url: "https://oapi.dingtalk.com/robot/send?access_token=xxx",
-    secret: "SECxxxx",
-    extra: {},
-    enabled: true,
-  },
-  {
-    id: "custom-demo",
-    name: "自定义-内部服务",
-    platform: "custom",
-    url: "https://api.example.com/webhook",
-    secret: null,
-    extra: {},
-    enabled: false,
-  },
-]
-
-const { data } = await useAsyncData<WebhookConfig[]>("webhooks:list", () =>
-  Promise.resolve([...MOCK_HOOKS])
-)
+const { data, refresh } = await useFetch<WebhookConfig[]>("/api/webhooks")
 
 const form = ref<WebhookConfig>({
   id: "",
@@ -59,7 +26,6 @@ const form = ref<WebhookConfig>({
 })
 
 const secretInput = ref("")
-
 const saving = ref(false)
 const toast = useToast()
 
@@ -85,16 +51,20 @@ function resetForm() {
 async function onSubmit() {
   saving.value = true
   try {
-    // TODO: 后端跑起来后替换为真实 $fetch
-    await new Promise((r) => setTimeout(r, 300))
     const payload: WebhookConfig = {
       ...form.value,
       secret: secretInput.value.trim() ? secretInput.value.trim() : null,
     }
-    const current = data.value ?? []
-    data.value = [...current, payload]
-    toast.add({ title: "已新增（Mock）", description: payload.name, color: "success" })
+    await $fetch("/api/webhooks", { method: "POST", body: payload })
+    toast.add({ title: "已新增", description: payload.name, color: "success" })
     resetForm()
+    await refresh()
+  } catch (e: any) {
+    toast.add({
+      title: "新增失败",
+      description: e?.data?.detail ?? e?.message ?? String(e),
+      color: "error",
+    })
   } finally {
     saving.value = false
   }
@@ -102,19 +72,33 @@ async function onSubmit() {
 
 async function onDelete(id: string) {
   if (!confirm(`删除 Webhook "${id}" ？`)) return
-  // TODO: replace with real $fetch once the backend is up
-  data.value = (data.value ?? []).filter((w) => w.id !== id)
-  toast.add({ title: "已删除（Mock）", description: id, color: "neutral" })
+  try {
+    await $fetch(`/api/webhooks/${id}`, { method: "DELETE" })
+    toast.add({ title: "已删除", description: id, color: "neutral" })
+    await refresh()
+  } catch (e: any) {
+    toast.add({
+      title: "删除失败",
+      description: e?.data?.detail ?? e?.message ?? String(e),
+      color: "error",
+    })
+  }
 }
 
 async function toggleEnabled(w: WebhookConfig) {
-  w.enabled = !w.enabled
-  // TODO: 后端跑起来后替换为真实 $fetch PUT
-  toast.add({
-    title: w.enabled ? "已启用（Mock）" : "已禁用（Mock）",
-    description: w.name,
-    color: "neutral",
-  })
+  try {
+    await $fetch(`/api/webhooks/${w.id}`, {
+      method: "PUT",
+      body: { enabled: !w.enabled },
+    })
+    await refresh()
+  } catch (e: any) {
+    toast.add({
+      title: "更新失败",
+      description: e?.data?.detail ?? e?.message ?? String(e),
+      color: "error",
+    })
+  }
 }
 </script>
 
@@ -205,10 +189,10 @@ async function toggleEnabled(w: WebhookConfig) {
     </UCard>
 
     <UCard variant="soft" class="text-sm text-gray-600">
-      💡 当前展示为 Mock 数据，等后端跑通后，将
-      <code class="px-1 rounded bg-gray-200">useAsyncData</code>
-      替换为 <code class="px-1 rounded bg-gray-200">useFetch</code>，操作（增删改）替换为真实的
-      <code class="px-1 rounded bg-gray-200">$fetch("/api/webhooks", ...)</code> 即可。
+      💡 数据已通过后端接口
+      <code class="px-1 rounded bg-gray-200">/api/webhooks</code>
+      读取与写入, 存储于
+      <code class="px-1 rounded bg-gray-200">data/webhooks.json</code>.
     </UCard>
   </div>
 </template>
