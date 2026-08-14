@@ -102,7 +102,7 @@ async function onSubmit() {
 
 async function onDelete(id: string) {
   if (!confirm(`删除 Webhook "${id}" ？`)) return
-  // TODO: 后端跑起来后替换为真实 $fetch
+  // TODO: replace with real $fetch once the backend is up
   data.value = (data.value ?? []).filter((w) => w.id !== id)
   toast.add({ title: "已删除（Mock）", description: id, color: "neutral" })
 }

@@ -1,9 +1,9 @@
-"""Chathook 后端入口：FastAPI 应用 + 一键启动。
+"""Chathook 后端入口: FastAPI 应用 + 一键启动.
 
-单独启动后端（开发）：
+单独启动后端 (开发):
     uv run uvicorn main:app --reload
 
-一键启动后端 + 前端（等效迁移前的 start.py）：
+一键启动后端 + 前端 (等效迁移前的 start.py):
     uv run python main.py
 """
 
@@ -19,19 +19,19 @@ from fastapi import FastAPI
 
 app = FastAPI(title="Chathook", version="0.1.0")
 
-# 项目根目录（即本文件所在目录）
+# 项目根目录 (即本文件所在目录)
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(ROOT, "dashboard")
 
 BACKEND_CMD = "uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000"
 FRONTEND_CMD = "npm run dev"
 
-# 清理时跳过这些目录（虚拟环境/依赖/版本库）
+# 清理时跳过这些目录 (虚拟环境/依赖/版本库)
 _SKIP_DIRS = {".git", ".venv", "venv", "node_modules"}
 
 
 def clean_pycache(root: str) -> None:
-    """递归清理 root 下的所有 __pycache__ 目录。"""
+    """递归清理 root 下的所有 __pycache__ 目录."""
     removed = 0
     for dirpath, dirnames, _ in os.walk(root):
         dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
@@ -43,7 +43,7 @@ def clean_pycache(root: str) -> None:
 
 
 def run_dev() -> int:
-    """并行启动后端 (uvicorn) 与前端 (Nuxt)，任一退出则整体停止。"""
+    """并行启动后端 (uvicorn) 与前端 (Nuxt), 任一退出则整体停止."""
     print("== Chathook 一键启动 ==")
     print(f"后端: {BACKEND_CMD}")
     print(f"前端: cd {FRONTEND_DIR} && {FRONTEND_CMD}")
@@ -60,7 +60,7 @@ def run_dev() -> int:
         while True:
             for proc in procs:
                 if proc.poll() is not None:
-                    print("有进程已退出，停止全部服务...")
+                    print("有进程已退出, 停止全部服务...")
                     raise KeyboardInterrupt
             time.sleep(0.5)
     except KeyboardInterrupt:
@@ -69,7 +69,7 @@ def run_dev() -> int:
         for proc in procs:
             if proc.poll() is None:
                 proc.terminate()
-        # 等待优雅退出，超时则强制结束
+        # 等待优雅退出, 超时则强制结束
         for proc in procs:
             try:
                 proc.wait(timeout=5)
@@ -78,7 +78,7 @@ def run_dev() -> int:
         # 清理残留的 __pycache__ 字节码缓存
         clean_pycache(ROOT)
 
-    print("已全部关闭。")
+    print("已全部关闭.")
     return 0
 
 
