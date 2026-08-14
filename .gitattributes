@@ -1,0 +1,13 @@
+# 统一行尾为 LF：检出、提交均使用 LF，避免 Windows/macOS/Linux 差异
+# text=auto 自动识别二进制文件（图片等不做转换）
+* text=auto eol=lf
+
+# 二进制文件显式声明，确保不被行尾转换影响
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary

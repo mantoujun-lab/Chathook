@@ -1,0 +1,21 @@
+# pre-commit 配置：提交前自动最小检查
+#
+# 更新所有 hook 到最新版本：
+#     pre-commit autoupdate
+#
+# 手动运行全部检查：
+#     pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0  # 由 autoupdate 自动更新
+    hooks:
+      - id: check-yaml            # YAML 语法检查
+      - id: check-toml            # TOML 语法检查 (pyproject.toml、uv.lock)
+      - id: check-json            # JSON 语法检查 (package-lock.json 等)
+      - id: check-merge-conflict  # 禁止提交未解决的合并冲突标记
+      - id: trailing-whitespace   # 去除行尾空白
+      - id: end-of-file-fixer     # 保证文件以单个换行结尾
+      - id: mixed-line-ending     # 统一行尾为 LF（配合 .gitattributes 双保险）
+        args: [--fix=lf]
+      - id: check-added-large-files  # 防止误提交大文件

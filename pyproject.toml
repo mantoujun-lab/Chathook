@@ -22,4 +22,6 @@ packages = ["src/chathook"]
 package = false
 
 [dependency-groups]
-dev = []
+dev = [
+    "pre-commit>=4.6.2",
+]

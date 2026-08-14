@@ -171,4 +171,3 @@ The Nuxt dev server proxies API calls to the FastAPI backend automatically.
 - **Vue/Nuxt**: Use `<script setup lang="ts">`. Composition API only. No Options API.
 - **Commits**: Use conventional commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`).
 - **Branches**: Feature branches named `feat/xxx`, `fix/xxx`, `refactor/xxx`.
-
