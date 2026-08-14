@@ -1,9 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ["@nuxt/ui"],
-  // 图标打包进客户端 bundle,避免依赖 /api/_nuxt_icon 端点(会被下方 /api/** 代理规则拦截导致 404)
+  // 将图标本地端点从默认的 /api/_nuxt_icon 改为 /_nuxt_icon,
+  // 避免被下方 /api/** 代理规则转发到 FastAPI 导致图标 404
   icon: {
-    mode: "client",
+    localApiEndpoint: "/_nuxt_icon",
   },
   compatibilityDate: "2025-08-14",
   devtools: { enabled: true },
