@@ -44,7 +44,7 @@ const MOCK_HOOKS: WebhookConfig[] = [
   },
 ]
 
-const { data, refresh } = await useAsyncData<WebhookConfig[]>("mock-hooks-manage", () =>
+const { data } = await useAsyncData<WebhookConfig[]>("webhooks:list", () =>
   Promise.resolve([...MOCK_HOOKS])
 )
 
@@ -57,6 +57,8 @@ const form = ref<WebhookConfig>({
   extra: {},
   enabled: true,
 })
+
+const secretInput = ref("")
 
 const saving = ref(false)
 const toast = useToast()
@@ -77,6 +79,7 @@ function resetForm() {
     extra: {},
     enabled: true,
   }
+  secretInput.value = ""
 }
 
 async function onSubmit() {
@@ -84,10 +87,13 @@ async function onSubmit() {
   try {
     // TODO: 后端跑起来后替换为真实 $fetch
     await new Promise((r) => setTimeout(r, 300))
+    const payload: WebhookConfig = {
+      ...form.value,
+      secret: secretInput.value.trim() ? secretInput.value.trim() : null,
+    }
     const current = data.value ?? []
-    current.push({ ...form.value })
-    data.value = current
-    toast.add({ title: "已新增（Mock）", description: form.value.name, color: "success" })
+    data.value = [...current, payload]
+    toast.add({ title: "已新增（Mock）", description: payload.name, color: "success" })
     resetForm()
   } finally {
     saving.value = false
@@ -134,7 +140,7 @@ async function toggleEnabled(w: WebhookConfig) {
           <UInput v-model="form.url" required type="url" placeholder="https://..." class="w-full" />
         </UFormField>
         <UFormField label="签名密钥（可选）" name="secret" class="col-span-2">
-          <UInput v-model="form.secret" placeholder="部分平台需要" class="w-full" />
+          <UInput v-model="secretInput" placeholder="留空表示不需要" class="w-full" />
         </UFormField>
         <div class="col-span-2">
           <UButton type="submit" :loading="saving" color="primary">新增</UButton>
@@ -146,34 +152,53 @@ async function toggleEnabled(w: WebhookConfig) {
       <template #header>
         <h3 class="text-base font-semibold">已配置</h3>
       </template>
-      <UTable v-if="data && data.length" :data="data" class="w-full">
+      <UTable
+        v-if="data && data.length"
+        :data="data"
+        :columns="[
+          { id: 'name', header: '名称' },
+          { id: 'platform', header: '平台' },
+          { id: 'url', header: 'URL' },
+          { id: 'enabled', header: '启用' },
+          { id: 'actions', header: '操作' },
+        ]"
+        class="w-full"
+      >
         <template #name-cell="{ row }">
           <div>
-            <div class="font-medium">{{ row.name }}</div>
-            <div class="text-xs text-gray-500">{{ row.id }}</div>
+            <div class="font-medium">{{ row.original.name }}</div>
+            <div class="text-xs text-gray-500">{{ row.original.id }}</div>
           </div>
         </template>
         <template #platform-cell="{ row }">
           <UBadge
             :color="
-              row.platform === 'feishu'
+              row.original.platform === 'feishu'
                 ? 'primary'
-                : row.platform === 'dingtalk'
+                : row.original.platform === 'dingtalk'
                   ? 'success'
                   : 'neutral'
             "
           >
-            {{ row.platform }}
+            {{ row.original.platform }}
           </UBadge>
         </template>
         <template #url-cell="{ row }">
-          <span class="text-sm break-all">{{ row.url }}</span>
+          <span class="text-sm break-all">{{ row.original.url }}</span>
         </template>
         <template #enabled-cell="{ row }">
-          <USwitch :model-value="row.enabled" @update:model-value="toggleEnabled(row)" />
+          <USwitch
+            :model-value="row.original.enabled"
+            @update:model-value="toggleEnabled(row.original)"
+          />
         </template>
         <template #actions-cell="{ row }">
-          <UButton @click="onDelete(row.id)" color="error" variant="outline" size="xs">删除</UButton>
+          <UButton
+            @click="onDelete(row.original.id)"
+            color="error"
+            variant="outline"
+            size="xs"
+          >删除</UButton>
         </template>
       </UTable>
       <p v-else class="text-gray-500">暂无配置</p>
