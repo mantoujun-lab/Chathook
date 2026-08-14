@@ -1,0 +1,7 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+@import "@fontsource-variable/inter";
+
+@theme {
+  --font-sans: "Inter Variable", -apple-system, "PingFang SC", "Noto Sans SC", "Source Han Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+}

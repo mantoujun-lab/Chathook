@@ -1,20 +1,43 @@
 [project]
 name = "chathook"
-version = "0.1.0"
-description = "聊天向 Webhook 中转站 —— 接收、转换、转发多平台 Webhook 消息"
+version = "1.0.0"
+description = "聊天向 Webhook 中转站 - 接收, 转换, 转发多平台 Webhook 消息"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "loguru",
+]
 
 [project.optional-dependencies]
+
+[project.scripts]
+bump = "bump_version:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/chathook"]
+packages = ["src/chat", "src/webhook"]
 
-[tool.uv]
-package = false
-dev-dependencies = []
+# 将根目录的 bump_version.py 作为顶层模块打入安装包, 供 `uv run bump` 使用
+[tool.hatch.build.targets.wheel.force-include]
+"bump_version.py" = "bump_version.py"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# 显式指定测试目录, 避免在某些环境 (如 CI 安装为 wheel 后) 下 pytest
+# 扫不到 tests/test_health.py 导致 "collected 0 items" 退出码 5
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+# 把项目根目录加到 sys.path 头部, 使 `from main import app` 在 CI 上也能工作
+pythonpath = ["."]
