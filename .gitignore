@@ -21,6 +21,7 @@ build/
 # IDE
 .idea/
 .vscode/
+.trae/
 
 # 测试（已有）
 /tests/
