@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/Python-yellow?style=for-the-badge&logo=python&logoColor=white&label=3.14%2B&labelColor=blue)](https://www.python.org)
 [![UV](https://img.shields.io/badge/UV-purple?style=for-the-badge&logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
-<!-- Webui Runtime -->
+<!-- Web UI Runtime -->
 [![NodeJS](https://img.shields.io/badge/NodeJS-green?style=for-the-badge&logo=node.js&logoColor=white&label=24)](https://nodejs.org)
 ![Nuxt](https://img.shields.io/badge/Nuxt-black?style=for-the-badge&logo=nuxt)
 
