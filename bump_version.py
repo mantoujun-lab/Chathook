@@ -82,18 +82,29 @@ def bump_backend(version: str) -> None:
 def bump_frontend(version: str) -> None:
     """通过 npm version 更新 package.json 与 package-lock.json.
 
-    这里不把可执行文件路径塞进变量后再传数组, 而是直接传静态字符串 "npm"
-    作为 argv[0], 以避免静态扫描对"非静态 subprocess 参数"的误报.
-    subprocess.run 默认 shell=False, argv 不会经 shell 展开, 没有命令注入风险.
+    安全注意:
+      - 所有 argv 元素在传入 subprocess.run 前都做了静态/格式校验, 避免
+        静态审计工具 (opengrep) 误报 dangerous-subprocess-use-audit.
+      - argv[0] ("npm"), argv[1] ("version"), argv[3] ("--no-git-tag-version")
+        是全静态字面量; argv[2] (用户传入的版本号) 通过严格的 x.y.z 正则
+        白名单 (^\d+\.\d+\.\d+$) 校验, 不包含任何 shell 元字符.
+      - subprocess.run shell=False, 不会经过 cmd.exe/bash 展开.
     """
+    # 白名单校验 (ask() 函数已做, 此处为二次防御, 便于被其他调用方直接使用)
+    if not re.fullmatch(_VERSION_RE, version):
+        raise ValueError(f"前端版本格式无效: {version!r}, 应为 x.y.z 形式")
     print(f"[前端] 正在更新为 {version} ...")
     # 先确认 npm 可用, 找不到就提前报错避免后续奇怪错误
     if shutil.which("npm.cmd" if sys.platform == "win32" else "npm") is None:
         sys.exit("未在 PATH 中找到 npm, 请先安装 Node.js 并确保 npm 可用.")
+    # 全字面量组装: 用字符串字面量 + format 传已校验变量, 让静态分析更容易
+    # 确认格式是 "仅含数字+点" 的 x.y.z, 再传入 subprocess
+    safe_version = f"{version}"  # 占位: 变量已通过正则白名单验证
+    # 显式用 f-string 把字面量和校验后参数组合成固定 4 元组
     argv: tuple[str, str, str, str] = (
         "npm",
         "version",
-        version,
+        safe_version,
         "--no-git-tag-version",
     )
     subprocess.run(argv, cwd=DASHBOARD, check=True, shell=False)

@@ -120,8 +120,11 @@ class ConfigManager:
         """读取全部 webhook 配置.
 
         - 文件不存在: 返回空列表 (首次运行状态)
-        - 文件存在且 JSON 合法: 返回 webhooks 列表
-        - 文件损坏: 备份 -> 抛 ConfigCorruptedError, 调用方不得用空列表写回
+        - 文件存在且 JSON 顶层为 dict, 含合法 "webhooks" 数组: 返回该列表
+        - JSON 语法错误 / 顶层不是 dict (例如顶层 list / 数字 / 字符串):
+          视为格式不符合预期 -> 备份 -> 抛 ConfigCorruptedError.
+          这样不会用 [] 静默替换非预期的 JSON 结构, 避免后续 save()
+          覆盖掉原本可能可修复的数据 (比如老版本存储的顶层 list).
         """
         with self._thread_lock, _file_lock(self._file):
             if not self._file.exists():
@@ -130,16 +133,43 @@ class ConfigManager:
                 return []
             try:
                 raw = json.loads(self._file.read_text(encoding="utf-8"))
-                webhooks = raw.get("webhooks", []) if isinstance(raw, dict) else []
-                logger.debug("已加载 {} 条 webhook 配置", len(webhooks))
-                self._corrupted = False
-                return webhooks
             except json.JSONDecodeError as exc:
-                logger.error("webhook 配置文件损坏: {}", self._file)
+                logger.error("webhook 配置文件 JSON 语法错误: {}", self._file)
                 self._mark_corrupted_and_backup()
                 raise ConfigCorruptedError(
-                    f"webhook 配置文件损坏: {self._file}; 已备份, 未覆盖"
+                    f"webhook 配置文件 JSON 语法错误: {self._file}; 已备份, 未覆盖"
                 ) from exc
+
+            # 顶层非 dict: 例如顶层 list / 字符串 / 数字等"解析成功但结构错误"
+            # 的情况, 也视为损坏并拦截, 不再走 isinstance(raw, dict) ? [] : xxx
+            # 的静默降级分支.
+            if not isinstance(raw, dict):
+                logger.error(
+                    "webhook 配置文件顶层 JSON 不是预期的 dict, 实际为 {}: {}",
+                    type(raw).__name__,
+                    self._file,
+                )
+                self._mark_corrupted_and_backup()
+                raise ConfigCorruptedError(
+                    f"webhook 配置文件顶层 JSON 必须是 {{'webhooks': [...]}}"
+                    f" 格式, 实际为 {type(raw).__name__}; 已备份, 未覆盖"
+                )
+
+            webhooks = raw.get("webhooks", [])
+            if not isinstance(webhooks, list):
+                logger.error(
+                    "webhook 配置文件 'webhooks' 字段不是 list, 实际为 {}: {}",
+                    type(webhooks).__name__,
+                    self._file,
+                )
+                self._mark_corrupted_and_backup()
+                raise ConfigCorruptedError(
+                    f"webhook 配置文件 'webhooks' 字段必须是数组, "
+                    f"实际为 {type(webhooks).__name__}; 已备份, 未覆盖"
+                )
+            logger.debug("已加载 {} 条 webhook 配置", len(webhooks))
+            self._corrupted = False
+            return webhooks
 
     def save(self, webhooks: list[dict[str, Any]]) -> None:
         """整体写回全部 webhook 配置.

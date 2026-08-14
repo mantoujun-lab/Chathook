@@ -40,9 +40,20 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     public: {
-      // 前端 $fetch 同源策略: 通过 Nuxt dev/proxy 访问时传空字符串走相对路径;
-      // 直连场景 (非 SSR 客户端绕过代理) 可单独设置前端可访问的 apiBase.
-      apiBase: process.env.API_BASE ? "" : "",
+      // 前端 $fetch 使用的后端基础地址:
+      //   - 未设置 NUXT_PUBLIC_API_BASE 且未设置 API_BASE 时 -> "" (同源相对路径, 通过
+      //     Nuxt routeRules 代理转发到上方 API_BASE)
+      //   - 设置 NUXT_PUBLIC_API_BASE 时 -> 使用该值 (独立部署直连后端的场景)
+      //   - 设置 API_BASE 但未设置 NUXT_PUBLIC_API_BASE 时 -> 沿用 API_BASE,
+      //     避免单独声明两个相近变量产生漂移
+      //
+      // 注意: 区分两个环境变量
+      //   - API_BASE              : 构建期 routeRules proxy 目标 (本文件顶部使用, 必须在
+      //     nuxi dev/build 之前设置)
+      //   - NUXT_PUBLIC_API_BASE  : 运行期 runtimeConfig.public.apiBase 的显式覆盖
+      //     (Nuxt 约定前缀). 若未显式覆盖, 回退到 API_BASE (同源代理场景仍可留空
+      //     "NUXT_PUBLIC_API_BASE=" 显式设为空)
+      apiBase: process.env.NUXT_PUBLIC_API_BASE ?? process.env.API_BASE ?? "",
     },
   },
   srcDir: "app/",

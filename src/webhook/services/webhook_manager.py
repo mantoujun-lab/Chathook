@@ -20,6 +20,14 @@ from ..config import ConfigCorruptedError, ConfigManager
 __all__ = ["WebhookManager", "ConfigCorruptedError"]
 
 
+# 允许通过 update() 写入磁盘的字段白名单, 与 WebhookConfig schema 保持一致.
+# Pydantic schema (WebhookUpdate) 在 HTTP 入口已做第一道限制; 此处再做一层
+# 存储层兜底, 避免内部调用方绕过 schema 写入任意字段导致 JSON schema 漂移.
+_ALLOWED_UPDATE_KEYS: frozenset[str] = frozenset(
+    {"name", "platform", "url", "secret", "extra", "enabled"}
+)
+
+
 class WebhookManager:
     """webhook 配置的增删改查."""
 
@@ -48,9 +56,22 @@ class WebhookManager:
         return webhook
 
     def update(self, webhook_id: str, patch: dict[str, Any]) -> dict[str, Any] | None:
-        """按 ID 更新字段; ID 不可变更; 不存在返回 None."""
+        """按 ID 更新字段; 仅允许 _ALLOWED_UPDATE_KEYS 白名单中的字段.
+
+        - 禁止通过 update 修改 "id" (白名单本身也不包含)
+        - 传入未知键会直接抛 KeyError, 而不是静默丢弃, 以便调用方尽快发现
+          契约不一致 (内部服务调用绕过 Pydantic schema 的场景)
+        - 返回 None 表示未找到目标 ID
+        """
         patch = dict(patch)
-        patch.pop("id", None)  # 禁止通过 update 修改 ID
+        # 先整体校验白名单: 任何不在 _ALLOWED_UPDATE_KEYS 中的键都视为调用错误
+        unknown = [k for k in patch.keys() if k not in _ALLOWED_UPDATE_KEYS]
+        if unknown:
+            raise KeyError(
+                f"Webhook update 不允许修改字段: {unknown!r}; "
+                f"允许的键: {sorted(_ALLOWED_UPDATE_KEYS)}"
+            )
+
         webhooks = self._config.load()
         for w in webhooks:
             if w.get("id") == webhook_id:
