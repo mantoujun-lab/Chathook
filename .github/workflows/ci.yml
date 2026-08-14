@@ -19,7 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v10
+        # 注意: astral-sh/setup-uv 仓库没有维护 vN 这种纯主版本 moving tag
+        # (只有 v7.6 / v7.5 这种 minor 级 moving tag), 必须使用精确 patch 版本.
+        # 升级时改为更新的 vN.N.N 即可, 参见:
+        # https://github.com/astral-sh/setup-uv/releases
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
       - name: Install dependencies
