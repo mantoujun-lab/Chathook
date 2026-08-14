@@ -1,0 +1,20 @@
+[project]
+name = "chathook"
+version = "0.1.0"
+description = "聊天向 Webhook 中转站 —— 接收、转换、转发多平台 Webhook 消息"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[project.optional-dependencies]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chathook"]
+
+[tool.uv]
+package = false
+dev-dependencies = []

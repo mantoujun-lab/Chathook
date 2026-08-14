@@ -1,0 +1,26 @@
+# 虚拟环境
+.venv/
+venv/
+
+# Python 字节码
+__pycache__/
+*.py[cod]
+
+# 环境变量与密钥
+.env
+.env.*
+
+# 构建产物
+dist/
+build/
+*.egg-info/
+
+# 日志
+*.log
+
+# IDE
+.idea/
+.vscode/
+
+# 测试（已有）
+/tests/
