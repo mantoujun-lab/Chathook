@@ -1,6 +1,10 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   modules: ["@nuxt/ui"],
+  // 图标打包进客户端 bundle,避免依赖 /api/_nuxt_icon 端点(会被下方 /api/** 代理规则拦截导致 404)
+  icon: {
+    mode: "client",
+  },
   compatibilityDate: "2025-08-14",
   devtools: { enabled: true },
   typescript: { strict: true },
