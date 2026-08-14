@@ -85,11 +85,12 @@ async function onDelete(id: string) {
   }
 }
 
-async function toggleEnabled(w: WebhookConfig) {
+async function toggleEnabled(w: WebhookConfig, enabled: boolean) {
   try {
     await $fetch(`/api/webhooks/${w.id}`, {
       method: "PUT",
-      body: { enabled: !w.enabled },
+      // 直接使用 USwitch 发出的新值, 不再从 w.enabled 反推, 避免 UI/后端不同步时错发
+      body: { enabled },
     })
     await refresh()
   } catch (e: any) {
@@ -173,7 +174,7 @@ async function toggleEnabled(w: WebhookConfig) {
         <template #enabled-cell="{ row }">
           <USwitch
             :model-value="row.original.enabled"
-            @update:model-value="toggleEnabled(row.original)"
+            @update:model-value="(val) => toggleEnabled(row.original, val)"
           />
         </template>
         <template #actions-cell="{ row }">

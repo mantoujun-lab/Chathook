@@ -2,6 +2,10 @@
 
 基于 ConfigManager 的 JSON 存储, 操作纯 dict 数据.
 webhook 字段契约与前端一致: id, name, platform, url, secret, extra, enabled
+
+异常传播约定:
+  - ConfigManager.load/save 抛的 ConfigCorruptedError 原样透出到 API 层,
+    返回 500 并告知用户需人工修复, 避免用空配置覆盖损坏文件.
 """
 
 from __future__ import annotations
@@ -10,7 +14,10 @@ from typing import Any
 
 from loguru import logger
 
-from ..config import ConfigManager
+from ..config import ConfigCorruptedError, ConfigManager
+
+
+__all__ = ["WebhookManager", "ConfigCorruptedError"]
 
 
 class WebhookManager:

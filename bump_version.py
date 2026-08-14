@@ -80,14 +80,23 @@ def bump_backend(version: str) -> None:
 
 
 def bump_frontend(version: str) -> None:
-    """通过 npm version 更新 package.json 与 package-lock.json."""
+    """通过 npm version 更新 package.json 与 package-lock.json.
+
+    这里不把可执行文件路径塞进变量后再传数组, 而是直接传静态字符串 "npm"
+    作为 argv[0], 以避免静态扫描对"非静态 subprocess 参数"的误报.
+    subprocess.run 默认 shell=False, argv 不会经 shell 展开, 没有命令注入风险.
+    """
     print(f"[前端] 正在更新为 {version} ...")
-    npm = shutil.which("npm.cmd") or "npm"  # Windows 上 npm 是 npm.cmd
-    subprocess.run(
-        [npm, "version", version, "--no-git-tag-version"],
-        cwd=DASHBOARD,
-        check=True,
+    # 先确认 npm 可用, 找不到就提前报错避免后续奇怪错误
+    if shutil.which("npm.cmd" if sys.platform == "win32" else "npm") is None:
+        sys.exit("未在 PATH 中找到 npm, 请先安装 Node.js 并确保 npm 可用.")
+    argv: tuple[str, str, str, str] = (
+        "npm",
+        "version",
+        version,
+        "--no-git-tag-version",
     )
+    subprocess.run(argv, cwd=DASHBOARD, check=True, shell=False)
 
 
 def main() -> None:

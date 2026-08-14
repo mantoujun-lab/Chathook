@@ -101,11 +101,13 @@ FastAPI Backend
 
 ## Supported Platforms
 
+Outbound 列表示出站方向（从 Chathook 发送到该平台）是否已经具备代码占位结构（适配器文件 + 平台枚举），Status 表示功能完备度：
+
 | Platform | Inbound | Outbound | Status |
 |---|---|---|---|
-| Feishu/Lark | — | Yes | Planned |
-| DingTalk | — | Yes | Planned |
-| Custom Webhook | — | Yes | Planned |
+| Feishu/Lark | — | Adapter stub | Planned (payload skeleton, signature pending) |
+| DingTalk | — | Adapter stub | Planned (payload skeleton, signature pending) |
+| Custom Webhook | — | Adapter stub | Planned (payload skeleton, headers/content-type pending) |
 
 ## Key Design Decisions
 
