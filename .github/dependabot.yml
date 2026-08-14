@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      time: "08:00"
+      timezone: "Asia/Shanghai"
+  - package-ecosystem: npm
+    directory: /dashboard
+    schedule:
+      interval: weekly
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      time: "10:00"
+      timezone: "Asia/Shanghai"
