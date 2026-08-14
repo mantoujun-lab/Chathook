@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -24,6 +25,21 @@ FRONTEND_DIR = os.path.join(ROOT, "dashboard")
 
 BACKEND_CMD = "uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000"
 FRONTEND_CMD = "npm run dev"
+
+# 清理时跳过这些目录（虚拟环境/依赖/版本库）
+_SKIP_DIRS = {".git", ".venv", "venv", "node_modules"}
+
+
+def clean_pycache(root: str) -> None:
+    """递归清理 root 下的所有 __pycache__ 目录。"""
+    removed = 0
+    for dirpath, dirnames, _ in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
+        if "__pycache__" in dirnames:
+            shutil.rmtree(os.path.join(dirpath, "__pycache__"), ignore_errors=True)
+            removed += 1
+    if removed:
+        print(f"已清理 {removed} 个 __pycache__ 目录")
 
 
 def run_dev() -> int:
@@ -59,6 +75,8 @@ def run_dev() -> int:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 proc.kill()
+        # 清理残留的 __pycache__ 字节码缓存
+        clean_pycache(ROOT)
 
     print("已全部关闭。")
     return 0

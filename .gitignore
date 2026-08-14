@@ -25,3 +25,6 @@ build/
 
 # 测试（已有）
 /tests/
+
+# 运行时数据（webhook 配置，含密钥）
+data/

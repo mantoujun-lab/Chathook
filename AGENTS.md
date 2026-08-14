@@ -29,27 +29,27 @@
 
 ```
 Chathook/
-├── src/chathook/              # Backend Python package
+├── main.py                     # FastAPI app entry point + 一键启动
+├── src/                        # Backend Python package
 │   ├── __init__.py
-│   ├── main.py               # FastAPI app entry point
-│   ├── chat/                  # Channel-agnostic abstractions
+│   ├── chat/                   # Channel-agnostic abstractions
 │   │   ├── __init__.py
-│   │   ├── schemas.py         # Unified message models (MessagePayload, SendRequest, SendResult)
-│   │   └── adapter.py         # OutboundAdapter ABC (base class for all channel adapters)
-│   └── webhook/               # Webhook channel implementation
+│   │   ├── schemas.py          # Unified message models (MessagePayload, SendRequest, SendResult)
+│   │   └── adapter.py          # OutboundAdapter ABC (base class for all channel adapters)
+│   └── webhook/                # Webhook channel implementation
 │       ├── __init__.py
-│       ├── config.py          # ConfigManager (JSON config read/write)
-│       ├── schema.py          # WebhookConfig, PlatformType, WebhookConfigFile
-│       ├── adapters/          # Platform-specific adapters
-│       │   ├── __init__.py    # Adapter registry (get_adapter)
-│       │   ├── feishu.py      # Feishu/Lark webhook adapter
-│       │   ├── dingtalk.py    # DingTalk webhook adapter
-│       │   └── custom.py      # Custom webhook adapter
-│       └── services/          # Business logic
+│       ├── config.py           # ConfigManager (JSON config read/write)
+│       ├── schema.py           # WebhookConfig, PlatformType, WebhookConfigFile
+│       ├── adapters/           # Platform-specific adapters
+│       │   ├── __init__.py     # Adapter registry (get_adapter)
+│       │   ├── feishu.py       # Feishu/Lark webhook adapter
+│       │   ├── dingtalk.py     # DingTalk webhook adapter
+│       │   └── custom.py       # Custom webhook adapter
+│       └── services/           # Business logic
 │           ├── __init__.py
-│           ├── sender.py      # SenderService (send + broadcast)
+│           ├── sender.py       # SenderService (send + broadcast)
 │           └── webhook_manager.py  # WebhookManager (CRUD)
-├── dashboard/                 # Frontend Nuxt 4 app
+├── dashboard/                  # Frontend Nuxt 4 app
 │   ├── app/
 │   │   ├── app.vue
 │   │   ├── app.config.ts
@@ -65,13 +65,14 @@ Chathook/
 │   └── package.json
 ├── tests/
 ├── data/                      # Runtime data (webhooks.json auto-created)
+├── AGENTS.md                  # This file
+├── README.md
+├── LICENSE
+├── .gitattributes
+├── .pre-commit-config.yaml
 ├── pyproject.toml
 ├── uv.lock
-├── .gitignore
-└── .trae/
-    ├── AGENTS.md              # This file
-    └── superpowers/
-        └── plans/             # Implementation plans
+└── .gitignore
 ```
 
 ## Architecture: Adapter Pattern
@@ -108,10 +109,10 @@ FastAPI Backend
 
 ## Key Design Decisions
 
-- **No database**: All Webhook configurations are stored in `data/webhooks.json`. The `ConfigManager` class handles read/write with Pydantic validation.
+- **No database**: All Webhook configurations are stored in `data/webhooks.json`. The `ConfigManager` class handles read/write with plain dict storage (no Pydantic models for config).
 - **No authentication**: Currently no auth on the API. Will be added later.
 - **CORS**: Wide-open in development (`allow_origins=["*"]`). Restrict in production.
-- **Extensibility**: New channel types (e.g., direct API, WebSocket) can be added as new top-level directories under `src/chathook/` (e.g., `api/`, `websocket/`), reusing `chat/` abstractions.
+- **Extensibility**: New channel types (e.g., direct API, WebSocket) can be added as new top-level directories under `src/` (e.g., `api/`, `websocket/`), reusing `chat/` abstractions.
 - **Frontend proxy**: In dev, Nuxt proxies `/api` and `/health` to `http://127.0.0.1:8000`. In production, set `API_BASE` env var.
 
 ## Development Commands
@@ -125,8 +126,8 @@ uv sync
 # Run dev server (with hot reload)
 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
-# Or use the shortcut (after Task 6 is implemented)
-uv run api-dev
+# Or start backend + frontend together (one-key dev)
+uv run python main.py
 
 # Run tests
 uv run pytest
