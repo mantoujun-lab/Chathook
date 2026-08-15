@@ -23,9 +23,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/chat", "src/webhook"]
 
-# 将根目录的 bump_version.py 作为顶层模块打入安装包, 供 `uv run bump` 使用
+# 将 scripts/bump_version.py 作为顶层模块打入安装包, 供 `uv run bump` 使用
 [tool.hatch.build.targets.wheel.force-include]
-"bump_version.py" = "bump_version.py"
+"scripts/bump_version.py" = "bump_version.py"
 
 [dependency-groups]
 dev = [

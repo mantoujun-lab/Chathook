@@ -1,7 +1,7 @@
 """交互式统一版本号脚本: 同时更新后端与前端 (webui) 版本.
 
 用法:
-    uv run python bump_version.py
+    uv run bump
 
 按提示分别输入后端版本与前端版本, 直接回车表示保持不变.
 """
