@@ -1,0 +1,118 @@
+# CodeRabbit configuration for Chathook
+# Scope: overall PR reviews (both Python backend and Nuxt frontend).
+# Sourcery handles Python deep-refactor suggestions; CodeRabbit focuses on
+# correctness, security, style, and front-end quality.
+
+language: "zh-CN"
+early_access: false
+
+tone_instructions: |
+  Be concise and direct. Use bullet points for multiple suggestions.
+  Severity order: Critical > Warning > Suggestion > Nitpick.
+  Prefer file/line references over long code blocks.
+
+reviews:
+  # Chill profile: fewer, higher-signal comments.
+  profile: "chill"
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  collapse_walkthrough: false
+  sequence_diagrams: false
+  poem: false
+
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - main
+      - develop
+    ignore_title_keywords:
+      - "WIP"
+      - "DO NOT MERGE"
+      - "chore: bump"
+      - "chore(deps)"
+
+  # Skip generated / lock files to reduce noise.
+  path_filters:
+    - "!**/*.lock"
+    - "!**/package-lock.json"
+    - "!**/pnpm-lock.yaml"
+    - "!**/yarn.lock"
+    - "!**/uv.lock"
+    - "!**/*.snap"
+    - "!**/*.generated.*"
+    - "!**/generated/**"
+    - "!dist/**"
+    - "!**/.nuxt/**"
+    - "!**/.output/**"
+    - "!**/node_modules/**"
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!**/data/**"
+
+  # Per-path review focus. Sourcery already covers deep Python refactor,
+  # so CodeRabbit stays light on src/ Python and heavier on correctness/security.
+  path_instructions:
+    - path: "src/**"
+      instructions: |
+        Python 3.14+, Pydantic v2, loguru, httpx async.
+        - Validate webhook URLs and payloads.
+        - Never log webhook secrets or tokens.
+        - Confirm async functions are awaited.
+        - Avoid backwards-compatibility shims unless requested.
+        - Sourcery handles refactor suggestions; skip style nitpicks here.
+
+    - path: "main.py"
+      instructions: |
+        FastAPI entrypoint. Check lifespan events, CORS config, and that
+        uvicorn host/port are env-driven for production.
+
+    - path: "dashboard/**/*.{vue,ts,js}"
+      instructions: |
+        Nuxt 4 + Vue 3 Composition API + TypeScript.
+        - <script setup lang="ts"> only, no Options API.
+        - Use $fetch / useFetch, no axios.
+        - Verify Nuxt UI v3 component props (not deprecated v2).
+        - Tailwind v4 utilities only; no inline styles.
+
+    - path: "dashboard/nuxt.config.ts"
+      instructions: |
+        Verify dev proxy points to http://127.0.0.1:8000 for /api and /health.
+
+    - path: "tests/**"
+      instructions: |
+        pytest with httpx AsyncClient. Skip style comments; focus on edge cases.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Pin action versions to SHA. No secrets in logs. Avoid broad permissions.
+
+  # Enable standard review tools. CodeRabbit's `tools` keys are a fixed set:
+  # ast-grep, shellcheck, github-checks, checkmake, detekt, dlint, eslint,
+  # flake8, gitleaks, golangci-lint, hadolint, ktlint, lintr, markdownlint,
+  # phpstan, pmd, powershell, pylint, pyright, ruff, semgrep, sqlfluff,
+  # stylelint, swiftlint, terraform, terragrunt, trivy.
+  # 'biome' is intentionally NOT listed - it isn't a recognized tool here.
+  # Front-end linting is covered by ESLint + markdownlint, and the project's
+  # own pre-commit already runs Biome for the dashboard.
+  tools:
+    eslint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    markdownlint:
+      enabled: true
+    ruff:
+      enabled: true
+    pyright:
+      enabled: true
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  learnings:
+    enabled: true
+    scope: "local"
