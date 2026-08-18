@@ -1,7 +1,6 @@
 # CodeRabbit configuration for Chathook
 # Scope: overall PR reviews (both Python backend and Nuxt frontend).
-# Sourcery handles Python deep-refactor suggestions; CodeRabbit focuses on
-# correctness, security, style, and front-end quality.
+# Focus: correctness, security, style, and front-end quality.
 
 language: "zh-CN"
 early_access: false
@@ -52,8 +51,7 @@ reviews:
     - "!**/*.pyc"
     - "!**/data/**"
 
-  # Per-path review focus. Sourcery already covers deep Python refactor,
-  # so CodeRabbit stays light on src/ Python and heavier on correctness/security.
+  # Per-path review focus.
   path_instructions:
     - path: "src/**"
       instructions: |
@@ -62,7 +60,6 @@ reviews:
         - Never log webhook secrets or tokens.
         - Confirm async functions are awaited.
         - Avoid backwards-compatibility shims unless requested.
-        - Sourcery handles refactor suggestions; skip style nitpicks here.
 
     - path: "main.py"
       instructions: |
