@@ -15,7 +15,10 @@ repos:
       - id: check-json            # JSON 语法检查 (package-lock.json 等)
       - id: check-merge-conflict  # 禁止提交未解决的合并冲突标记
       - id: trailing-whitespace   # 去除行尾空白
+        # GitHub 禁止第三方 CI 自动修改 workflow 文件, 跳过避免触发 pre-commit.ci 拦截
+        exclude: ^\.github/workflows/
       - id: end-of-file-fixer     # 保证文件以单个换行结尾
+        exclude: ^\.github/workflows/
       - id: mixed-line-ending     # 统一行尾为 LF (配合 .gitattributes 双保险)
         args: [--fix=lf]
       - id: check-added-large-files  # 防止误提交大文件
