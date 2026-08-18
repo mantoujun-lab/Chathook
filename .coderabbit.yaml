@@ -106,7 +106,7 @@ reviews:
       enabled: true
     ruff:
       enabled: true
-    pyright:
+    pylint:
       enabled: true
 
 chat:
