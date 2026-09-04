@@ -17,6 +17,11 @@
 #   - 前端 Node tag 固定到 "24" (而非 "current"), 避免 CircleCI 滚动 LTS
 #     在 Node 26 升 active 时静默切换; npm ci 必须从 dashboard/ 子目录执行,
 #     与 package-lock.json 所在位置一致.
+#
+# workflow jobs 语法 (官方文档:
+# https://circleci.com/docs/configuration-reference/#workflows):
+#   每个 jobs 条目必须是字符串 (job 名) 或带至少一个键的映射;
+#   "build-node: null" / "build-node:" 都会被 schema 拒绝 (oneOf: string | minProperties: 1).
 
 version: 2.1
 
@@ -72,4 +77,10 @@ workflows:
   build-and-test:
     jobs:
       - test-python
+      # 这里必须是完整的映射 (含至少一个键, e.g. requires: [...]),
+      # 否则 schema 校验会失败:
+      #   "expected type: String, found: Mapping" (当写成多行)
+      #   "minimum size: [1], found: [0]"  (当写成 "build-node:" 无值 -> null)
       - build-node:
+          requires:
+            - test-python
