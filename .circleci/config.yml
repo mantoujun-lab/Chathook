@@ -14,9 +14,16 @@
 #   - 项目根目录存在 uv.lock, 触发 uv 包管理器自动检测; 这里显式写
 #     pkg-manager: uv 避免依赖 orb 推断, 同时让缓存键和锁文件路径稳定.
 #     uv 自身也通过 UV_INSTALLER_VERSION 固定, 避免 curl 静默跟随 latest.
-#   - 前端 Node tag 固定到 "24" (而非 "current"), 避免 CircleCI 滚动 LTS
-#     在 Node 26 升 active 时静默切换; npm ci 必须从 dashboard/ 子目录执行,
-#     与 package-lock.json 所在位置一致.
+#   - 前端 Node tag 固定到 "lts" (而非 "current" 或 "24"):
+#     * "current" 在 Node 26 进入 active 时会静默切换;
+#     * "24" 这个 cimg/node 镜像 tag 实际上并不发布 —— CircleCI 的
+#       CircleCI-Public/cimg-node/nodeFeed.sh 只为 major.minor (例如
+#       "24.18") 和 "lts" (alias) 发布镜像:
+#           24.*) export builtParam="=lts" ;;     # alias = lts
+#           26.*) export builtParam="=current" ;; # alias = current
+#       用 "24" 会触发 "no such image" 而在 6 秒内失败 (issue:
+#       pipeline 97088641-..., build-node job 9).
+#     npm ci 必须从 dashboard/ 子目录执行, 与 package-lock.json 一致.
 #
 # workflow jobs 语法 (官方文档:
 # https://circleci.com/docs/configuration-reference/#workflows):
@@ -56,12 +63,12 @@ jobs:
 
   build-node:
     # 前端: dashboard/ 子项目, Node LTS 24, npm ci + npm run build.
-    # tag 固定到 "24" 而不是 "current", 避免 Node 26 进入 active LTS 时
-    # CircleCI 滚动 LTS 静默切换; 与 .github/workflows/ci.yml:42 的
-    # `node-version: 24` 保持一致.
+    # tag 使用官方 alias "lts" (指向当前 Node 24 LTS), 而不是 "current"
+    # (Node 26 active 时会切走) 也不是 "24" (该 tag 实际不存在, 见上方注释).
+    # 与 .github/workflows/ci.yml:42 的 `node-version: 24` 保持一致 (Node 24 LTS).
     executor:
       name: node/default
-      tag: "24"
+      tag: "lts"
     steps:
       - checkout
       - node/install-packages:
