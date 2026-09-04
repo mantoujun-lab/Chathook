@@ -65,5 +65,3 @@ workflows:
     jobs:
       - test-python
       - build-node:
-          requires:
-            - test-python
