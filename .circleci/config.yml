@@ -1,0 +1,75 @@
+# CircleCI pipeline for Chathook.
+#
+# 与项目其它 CI 文件 (.github/workflows/ci.yml) 对齐:
+#   - 后端: Python 3.14+, 使用 uv 作为包管理器 (与本地开发一致)
+#   - 前端: dashboard/ 下的 Nuxt 4 项目, Node 24 LTS, npm ci + npm run build
+#
+# 关键点:
+#   - pyproject.toml 要求 requires-python = ">=3.14", 因此 docker 镜像
+#     必须使用 cimg/python:3.14. 早先用 cimg/python:3.8-node (CircleCI 自动
+#     生成) 会直接被 uv sync 拒绝:
+#         error: The requested interpreter resolved to Python 3.8.20,
+#         which is incompatible with the project's Python requirement: `>=3.14`
+#     该错误会让 test-python 整条流水线失败, 进而 block 掉 build-node.
+#   - 项目根目录存在 uv.lock, 触发 uv 包管理器自动检测; 这里显式写
+#     pkg-manager: uv 避免依赖 orb 推断, 同时让缓存键和锁文件路径稳定.
+#     uv 自身也通过 UV_INSTALLER_VERSION 固定, 避免 curl 静默跟随 latest.
+#   - 前端 Node tag 固定到 "24" (而非 "current"), 避免 CircleCI 滚动 LTS
+#     在 Node 26 升 active 时静默切换; npm ci 必须从 dashboard/ 子目录执行,
+#     与 package-lock.json 所在位置一致.
+
+version: 2.1
+
+orbs:
+  python: circleci/python@4.0.0
+  node: circleci/node@7.2.1
+
+jobs:
+  test-python:
+    # 后端: Python 3.14 + uv (uv 由 official installer 装到 ~/.local/bin)
+    executor:
+      name: python/default
+      tag: "3.14"
+    steps:
+      - checkout
+      - run:
+          name: Install uv (project's package manager)
+          # orb 的 pkg-manager: uv 假设 uv 已在 PATH 中, 这里按官方文档安装:
+          # https://docs.astral.sh/uv/#installation
+          # UV_INSTALLER_VERSION 固定 uv 版本, 与 .github/workflows/ci.yml 中
+          # astral-sh/setup-uv@v10.0.1 的"必须使用精确 patch 版本"理由保持一致,
+          # 避免无声跟随 uv 最新 release.
+          command: |
+            curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALLER_VERSION=0.12.9 sh
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+      - python/install-packages:
+          # 显式指定 uv 而非 auto-detect, 让缓存键和锁文件路径稳定
+          pkg-manager: uv
+      - run:
+          name: Run backend tests (uv run pytest)
+          command: uv run pytest
+
+  build-node:
+    # 前端: dashboard/ 子项目, Node LTS 24, npm ci + npm run build.
+    # tag 固定到 "24" 而不是 "current", 避免 Node 26 进入 active LTS 时
+    # CircleCI 滚动 LTS 静默切换; 与 .github/workflows/ci.yml:42 的
+    # `node-version: 24` 保持一致.
+    executor:
+      name: node/default
+      tag: "24"
+    steps:
+      - checkout
+      - node/install-packages:
+          pkg-manager: npm
+          # dashboard/ 下才是 package.json / package-lock.json
+          app-dir: dashboard
+      - run:
+          name: Build Nuxt dashboard
+          working_directory: dashboard
+          command: npm run build
+
+workflows:
+  build-and-test:
+    jobs:
+      - test-python
+      - build-node:
