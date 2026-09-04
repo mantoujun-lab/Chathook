@@ -1,80 +1,70 @@
-# This config was automatically generated from your source code
-# Stacks detected: cicd:github-actions:.github/workflows,deps:node:dashboard,deps:python:.
+# CircleCI pipeline for Chathook.
+#
+# 与项目其它 CI 文件 (.github/workflows/ci.yml) 对齐:
+#   - 后端: Python 3.14+, 使用 uv 作为包管理器 (与本地开发一致)
+#   - 前端: dashboard/ 下的 Nuxt 4 项目, Node LTS (当前 24), npm ci + npm run build
+#
+# 关键点:
+#   - pyproject.toml 要求 requires-python = ">=3.14", 因此 docker 镜像
+#     必须使用 cimg/python:3.14. 早先用 cimg/python:3.8-node (CircleCI 自动
+#     生成) 会直接被 uv sync 拒绝:
+#         error: The requested interpreter resolved to Python 3.8.20,
+#         which is incompatible with the project's Python requirement: `>=3.14`
+#     该错误会让 test-python 整条流水线失败, 进而 block 掉 build-node.
+#   - 项目根目录存在 uv.lock, 触发 uv 包管理器自动检测; 这里显式写
+#     pkg-manager: uv 避免依赖 orb 推断, 同时让缓存键和锁文件路径稳定.
+#   - 前端用 cimg/node:current (CircleCI 滚动 LTS, 当前为 Node 24 LTS);
+#     npm ci 必须从 dashboard/ 子目录执行, 与 package-lock.json 所在位置一致.
+
 version: 2.1
+
 orbs:
-  node: circleci/node@5
-  python: circleci/python@2
+  python: circleci/python@4.0.0
+  node: circleci/node@7.2.1
+
 jobs:
-  build-node:
-    # Build node project
-    executor: node/default
-    working_directory: ~/project/dashboard
-    steps:
-      - checkout:
-          path: ~/project
-      - node/install-packages:
-          pkg-manager: npm
-      - run:
-          command: npm run build
-      - run:
-          name: Create the ~/artifacts directory if it doesn't exist
-          command: mkdir -p ~/artifacts
-      # Copy output to artifacts dir
-      - run:
-          name: Copy artifacts
-          command: cp -R build dist public .output .next .docusaurus ~/artifacts 2>/dev/null || true
-      - store_artifacts:
-          path: ~/artifacts
-          destination: node-build
   test-python:
-    # Install dependencies and run tests
-    docker:
-      - image: cimg/python:3.8-node
+    # 后端: Python 3.14 + uv (uv 由 official installer 装到 ~/.local/bin)
+    executor:
+      name: python/default
+      tag: "3.14"
     steps:
       - checkout
-      - python/install-packages
       - run:
-          name: Run tests
-          command: pytest --junitxml=junit.xml || ((($? == 5)) && echo 'Did not find any tests to run.')
-      - store_test_results:
-          path: junit.xml
-  deploy:
-    # This is an example deploy job, not actually used by the workflow
-    docker:
-      - image: cimg/base:stable
+          name: Install uv (project's package manager)
+          # orb 的 pkg-manager: uv 假设 uv 已在 PATH 中, 这里按官方文档安装:
+          # https://docs.astral.sh/uv/#installation
+          command: |
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$BASH_ENV"
+      - python/install-packages:
+          # 显式指定 uv 而非 auto-detect, 让缓存键和锁文件路径稳定
+          pkg-manager: uv
+      - run:
+          name: Run backend tests (uv run pytest)
+          command: uv run pytest
+
+  build-node:
+    # 前端: dashboard/ 子项目, Node LTS (当前 24), npm ci + npm run build
+    executor:
+      name: node/default
+      tag: "current"
     steps:
+      - checkout
+      - node/install-packages:
+          pkg-manager: npm
+          # dashboard/ 下才是 package.json / package-lock.json
+          app-dir: dashboard
       - run:
-          name: Plan deployment
-          command: |-
-            circleci run release plan deploy \
-              --environment-name="default" \
-              --component-name="deploy" \
-              --target-version="1.0.${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1:0:7}"
-      # Replace this with steps to deploy to users
-      - run:
-          name: deploy
-          command: '#e.g. ./deploy.sh'
-      - run:
-          name: found github actions config
-          command: ':'
-      - run:
-          name: Update deployment status to running
-          command: circleci run release update deploy --status=RUNNING
-      - run:
-          name: Update deployment status to success
-          command: circleci run release update deploy --status=SUCCESS
-          when: on_success
-      - run:
-          name: Update deployment status to failed
-          command: circleci run release update deploy --status=FAILED
-          when: on_fail
+          name: Build Nuxt dashboard
+          working_directory: dashboard
+          command: npm run build
+
 workflows:
   build-and-test:
     jobs:
+      - test-python
       - build-node:
           requires:
             - test-python
-      - test-python
-    # - deploy:
-    #     requires:
-    #       - build-node
+
