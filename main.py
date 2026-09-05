@@ -82,6 +82,13 @@ def _resolve_executable(name: str) -> str:
     return resolved
 
 
+class _ChildExited(Exception):
+    """轮询循环内部信号: 任一子进程已退出 (区别于 SIGINT 触发的 KeyboardInterrupt)."""
+
+    def __init__(self) -> None:
+        super().__init__("子进程意外退出")
+
+
 def run_dev() -> int:
     """并行启动后端 (uvicorn) 与前端 (Nuxt), 任一退出则整体停止.
 
@@ -133,9 +140,13 @@ def run_dev() -> int:
                     print(
                         f"{label} 进程已退出 (code={rc}), 停止全部服务..."
                     )
-                    raise KeyboardInterrupt
+                    raise _ChildExited
             time.sleep(0.5)
+    except _ChildExited:
+        # 子进程意外退出: 不设置 interrupted_by_user, 让非零退出码透传出去
+        print("\n正在关闭服务...")
     except KeyboardInterrupt:
+        # 只有真正的 SIGINT 才把这次关闭视为成功
         interrupted_by_user = True
         print("\n正在关闭服务...")
     finally:
