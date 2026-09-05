@@ -97,11 +97,19 @@ class ConfigManager:
     # ---- 损坏标记与备份 ----
 
     def _mark_corrupted_and_backup(self) -> None:
-        """把当前损坏文件复制一份备份, 并标记 corrupted 状态以拦截 save()."""
+        """把当前损坏文件复制一份备份, 并标记 corrupted 状态以拦截 save().
+
+        备份文件名使用毫秒级时间戳 + 短随机后缀, 避免:
+          - 同秒内多次损坏时 int(time.time()) 退化为同名文件, 后写覆盖前写
+          - 测试或快速循环中可能出现的同毫秒冲突 (随机后缀兜底)
+        """
+        import secrets
         import time
 
+        ts_ms = int(time.time() * 1000)
+        suffix = secrets.token_hex(3)
         backup = self._file.with_name(
-            f"{self._file.name}.corrupted.{int(time.time())}"
+            f"{self._file.name}.corrupted.{ts_ms}.{suffix}"
         )
         try:
             backup.write_bytes(self._file.read_bytes())
