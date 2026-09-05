@@ -13,7 +13,7 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class PlatformType(str, Enum):
@@ -55,6 +55,20 @@ class WebhookConfigBase(BaseModel):
         description=_EXTRA_DESCRIPTION,
     )
     enabled: bool = Field(default=True, description="是否启用")
+
+    @field_validator("extra", mode="before")
+    @classmethod
+    def _normalize_extra(cls, value: Any) -> Any:
+        """将显式 null 规范化为空字典.
+
+        WebhookUpdate.extra 允许 None (用于"清空 extra"); 传入 None 时
+        若直接走 dict[str, Any] 类型校验会抛 ValidationError, 导致
+        PATCH /api/webhooks/{id} 返回 500. 此处统一规范化为 {}, 使:
+          - 入参 extra: null -> 存储为 {} (语义等价于清空)
+          - 出参永远返回 dict, 不会泄露 null 给前端
+          - 历史脏数据中的 "extra": null 在加载时也归一为 {}
+        """
+        return value if value is not None else {}
 
 
 class WebhookConfig(WebhookConfigBase):
