@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from starlette.staticfiles import StaticFiles
 
@@ -29,6 +29,11 @@ INDEX_FILE = OUTPUT_DIR / "index.html"
 HOST = "127.0.0.1"
 PORT = 8000
 
+# 触发前端重建的输入: 源码目录 + 构建配置 + 依赖清单
+_FRONTEND_INPUTS = ("app", "nuxt.config.ts", "package.json", "package-lock.json")
+# npm ci 后写入的依赖安装标记, 用于判断 node_modules 是否与依赖清单一致
+_INSTALL_MARKER = FRONTEND_DIR / "node_modules" / ".package-lock.json"
+
 app = FastAPI(title="Chathook", version="1.1.0")
 app.include_router(webhook_router)
 
@@ -36,6 +41,16 @@ app.include_router(webhook_router)
 @app.get("/health", include_in_schema=False)
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+def _resolve_spa_file(full_path: str) -> Path:
+    """把前端路由解析为产物文件, 越界或缺失时回退到 index.html."""
+    candidate = (OUTPUT_DIR / full_path).resolve()
+    try:
+        candidate.relative_to(OUTPUT_DIR.resolve())
+    except ValueError:
+        return INDEX_FILE
+    return candidate if candidate.is_file() else INDEX_FILE
 
 
 def _mount_static(app: FastAPI) -> None:
@@ -48,19 +63,13 @@ def _mount_static(app: FastAPI) -> None:
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa_fallback(full_path: str) -> FileResponse:
-    def spa_fallback(full_path: str) -> FileResponse:
+        # 未知的 API 路径应返回 404, 而不是把 HTML 面板当作成功响应返回
         if full_path == "api" or full_path.startswith("api/"):
-            from fastapi import HTTPException
-
             raise HTTPException(status_code=404)
-        candidate = (OUTPUT_DIR / full_path).resolve()
-        try:
-            candidate.relative_to(OUTPUT_DIR.resolve())
-        except ValueError:
-            candidate = INDEX_FILE
-        if candidate.is_file():
-            return FileResponse(candidate)
-        return FileResponse(INDEX_FILE)
+        # 前端产物缺失时 (例如只启动了后端), 未匹配的 GET 返回 404 而非 500
+        if not INDEX_FILE.is_file():
+            raise HTTPException(status_code=404)
+        return FileResponse(_resolve_spa_file(full_path))
 
 
 _mount_static(app)
@@ -75,29 +84,43 @@ def _resolve_executable(name: str) -> str:
     return resolved
 
 
-def _newest_mtime(root: Path) -> float:
-    if not root.exists():
+def _newest_mtime(path: Path) -> float:
+    if not path.exists():
         return 0.0
-    latest = root.stat().st_mtime
-    for p in root.rglob("*"):
-        if p.is_file():
-            latest = max(latest, p.stat().st_mtime)
+    if path.is_file():
+        return path.stat().st_mtime
+    latest = 0.0
+    for child in path.rglob("*"):
+        if child.is_file():
+            latest = max(latest, child.stat().st_mtime)
     return latest
+
+
+def _frontend_inputs_mtime() -> float:
+    return max(_newest_mtime(FRONTEND_DIR / name) for name in _FRONTEND_INPUTS)
 
 
 def _needs_rebuild() -> bool:
     if not INDEX_FILE.is_file():
         return True
-    pkg = FRONTEND_DIR / "package.json"
-    if not (FRONTEND_DIR / "node_modules").is_dir():
+    return _frontend_inputs_mtime() > _newest_mtime(OUTPUT_DIR)
+
+
+def _needs_install() -> bool:
+    if not _INSTALL_MARKER.is_file():
         return True
-    return True
-    return False
+    deps_mtime = max(
+        _newest_mtime(FRONTEND_DIR / "package.json"),
+        _newest_mtime(FRONTEND_DIR / "package-lock.json"),
+    )
+    return deps_mtime > _INSTALL_MARKER.stat().st_mtime
 
 
 def _run(argv: list[str], cwd: Path) -> None:
     print(f"$ {' '.join(argv)}  (cwd={cwd})")
-    result = subprocess.run(argv, cwd=cwd, shell=False)
+    # argv 只由静态参数与 shutil.which 解析出的绝对路径组成, 无外部输入,
+    # 且 shell=False, 不存在命令注入; nosemgrep 抑制审计规则的误报.
+    result = subprocess.run(argv, cwd=cwd, shell=False)  # nosemgrep
     if result.returncode != 0:
         raise RuntimeError(
             f"命令失败 (code={result.returncode}): {' '.join(argv)}"
@@ -110,8 +133,8 @@ def _ensure_frontend() -> None:
         return
     print("未检测到可用前端产物, 开始构建...")
     npm = _resolve_executable("npm")
-    if not (FRONTEND_DIR / "node_modules").is_dir():
-        _run([npm, "install"], FRONTEND_DIR)
+    if _needs_install():
+        _run([npm, "ci"], FRONTEND_DIR)
     _run([npm, "run", "generate"], FRONTEND_DIR)
 
 

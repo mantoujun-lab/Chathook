@@ -13,7 +13,8 @@ interface WebhookConfig {
   enabled: boolean
 }
 
-const { data, refresh } = await useFetch<WebhookConfig[]>("/api/webhooks")
+// 仅客户端请求: 构建 (nuxt generate) 时后端尚未启动, 避免把空列表固化进预渲染产物
+const { data, refresh } = await useFetch<WebhookConfig[]>("/api/webhooks", { server: false })
 
 const form = ref<WebhookConfig>({
   id: "",

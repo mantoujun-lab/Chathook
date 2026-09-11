@@ -20,7 +20,8 @@ interface SendResult {
   error_message?: string
 }
 
-const { data: webhooks } = await useFetch<WebhookConfig[]>("/api/webhooks")
+// 仅客户端请求: 构建 (nuxt generate) 时后端尚未启动, 避免把空列表固化进预渲染产物
+const { data: webhooks } = await useFetch<WebhookConfig[]>("/api/webhooks", { server: false })
 
 const selected = ref<string>("")
 const title = ref("")
