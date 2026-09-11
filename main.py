@@ -1,9 +1,9 @@
-"""Chathook 后端入口: FastAPI 应用 + 一键启动.
+"""Chathook entry point.
 
-单独启动后端 (开发):
-    uv run uvicorn main:app --reload
+Single-process launcher: builds the Nuxt frontend on demand and serves
+both the static dashboard and the FastAPI backend on a single port.
 
-一键启动后端 + 前端 (等效迁移前的 start.py):
+Usage:
     uv run python main.py
 """
 
@@ -13,178 +13,147 @@ import os
 import shutil
 import subprocess
 import sys
-import time
+from pathlib import Path
 
-from fastapi import FastAPI
+import uvicorn
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
+from starlette.staticfiles import StaticFiles
 
 from src.webhook.api import router as webhook_router
+
+ROOT = Path(__file__).resolve().parent
+FRONTEND_DIR = ROOT / "dashboard"
+OUTPUT_DIR = FRONTEND_DIR / ".output" / "public"
+INDEX_FILE = OUTPUT_DIR / "index.html"
+
+HOST = "127.0.0.1"
+PORT = 8000
+
+# 触发前端重建的输入: 源码目录 + 构建配置 + 依赖清单
+_FRONTEND_INPUTS = ("app", "nuxt.config.ts", "package.json", "package-lock.json")
+# npm ci 后写入的依赖安装标记, 用于判断 node_modules 是否与依赖清单一致
+_INSTALL_MARKER = FRONTEND_DIR / "node_modules" / ".package-lock.json"
 
 app = FastAPI(title="Chathook", version="1.1.0")
 app.include_router(webhook_router)
 
 
-@app.get("/health")
+@app.get("/health", include_in_schema=False)
 def health() -> dict[str, str]:
-    """健康检查."""
     return {"status": "ok"}
 
-# 项目根目录 (即本文件所在目录)
-ROOT = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIR = os.path.join(ROOT, "dashboard")
 
-# 使用 argv 列表 + shell=False:
-#   - 避免 shell=True 引入的命令注入面 (即使本工具只本地开发使用)
-#   - 子进程非零退出码通过 returncode 显式处理, 不依赖 shell 行为
-#   - 实际可执行文件通过 _resolve_executable() 解析 (Windows 上 npm 是
-#     npm.cmd, uv 是 uv.exe), 保证 subprocess 在 shell=False 下也能启动.
-_BACKEND_ARGV: tuple[str, ...] = (
-    "uv",
-    "run",
-    "uvicorn",
-    "main:app",
-    "--reload",
-    "--host",
-    "0.0.0.0",
-    "--port",
-    "8000",
-)
-_FRONTEND_ARGV: tuple[str, ...] = ("npm", "run", "dev")
+def _resolve_spa_file(full_path: str) -> Path:
+    """把前端路由解析为产物文件, 越界或缺失时回退到 index.html.
 
-# 清理时跳过这些目录 (虚拟环境/依赖/版本库)
-_SKIP_DIRS = {".git", ".venv", "venv", "node_modules"}
+    先用 ``realpath`` 规范化 (消除 ``..`` 并解析符号链接), 再校验结果仍位于
+    产物目录内; 只有通过前缀检查的路径才会被访问, 避免目录穿越.
+    """
+    root = os.path.realpath(OUTPUT_DIR)
+    candidate = os.path.realpath(os.path.join(root, full_path))
+    if not candidate.startswith(root + os.sep):
+        return INDEX_FILE
+    return Path(candidate) if os.path.isfile(candidate) else INDEX_FILE
 
 
-def clean_pycache(root: str) -> None:
-    """递归清理 root 下的所有 __pycache__ 目录."""
-    removed = 0
-    for dirpath, dirnames, _ in os.walk(root):
-        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS]
-        if "__pycache__" in dirnames:
-            shutil.rmtree(os.path.join(dirpath, "__pycache__"), ignore_errors=True)
-            removed += 1
-    if removed:
-        print(f"已清理 {removed} 个 __pycache__ 目录")
+def _mount_static(app: FastAPI) -> None:
+    if (OUTPUT_DIR / "_nuxt").is_dir():
+        app.mount(
+            "/_nuxt",
+            StaticFiles(directory=str(OUTPUT_DIR / "_nuxt")),
+            name="nuxt-assets",
+        )
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str) -> FileResponse:
+        # 未知的 API 路径应返回 404, 而不是把 HTML 面板当作成功响应返回
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404)
+        # 前端产物缺失时 (例如只启动了后端), 未匹配的 GET 返回 404 而非 500
+        if not INDEX_FILE.is_file():
+            raise HTTPException(status_code=404)
+        return FileResponse(_resolve_spa_file(full_path))
+
+
+_mount_static(app)
 
 
 def _resolve_executable(name: str) -> str:
-    """在 Windows 上把 "npm" / "uv" 解析为具体的可执行文件路径.
-
-    subprocess.Popen + shell=False 在 Windows 下不会自动扩展 PATHEXT,
-    因此直接传 "npm" 会报 FileNotFoundError. 使用 shutil.which 能拿到
-    真实的 .exe / .cmd 文件, 同时保留 shell=False 的安全性.
-    """
     resolved = shutil.which(name)
     if resolved is None:
-        # 给一个清晰的错误, 避免在 CreateProcess 深处才失败
         raise FileNotFoundError(
             f"找不到可执行文件: {name!r}. 请确认它已安装并在 PATH 中."
         )
     return resolved
 
 
-class _ChildExited(Exception):
-    """轮询循环内部信号: 任一子进程已退出 (区别于 SIGINT 触发的 KeyboardInterrupt)."""
+def _newest_mtime(path: Path) -> float:
+    if not path.exists():
+        return 0.0
+    if path.is_file():
+        return path.stat().st_mtime
+    latest = 0.0
+    for child in path.rglob("*"):
+        if child.is_file():
+            latest = max(latest, child.stat().st_mtime)
+    return latest
 
-    def __init__(self) -> None:
-        super().__init__("子进程意外退出")
+
+def _frontend_inputs_mtime() -> float:
+    return max(_newest_mtime(FRONTEND_DIR / name) for name in _FRONTEND_INPUTS)
 
 
-def run_dev() -> int:
-    """并行启动后端 (uvicorn) 与前端 (Nuxt), 任一退出则整体停止.
+def _needs_rebuild() -> bool:
+    if not INDEX_FILE.is_file():
+        return True
+    return _frontend_inputs_mtime() > _newest_mtime(OUTPUT_DIR)
 
-    与旧实现不同: 使用列表 argv + shell=False, 并在检测到非预期退出时
-    把子进程退出码透传给 sys.exit, 使失败显式化.
-    """
-    backend_executable = _resolve_executable(_BACKEND_ARGV[0])
-    frontend_executable = _resolve_executable(_FRONTEND_ARGV[0])
-    backend_argv: tuple[str, ...] = (backend_executable, *_BACKEND_ARGV[1:])
-    frontend_argv: tuple[str, ...] = (frontend_executable, *_FRONTEND_ARGV[1:])
 
-    backend_cmd_str = " ".join(backend_argv)
-    frontend_cmd_str = " ".join(frontend_argv)
-    print("== Chathook 一键启动 ==")
-    print(f"后端: {backend_cmd_str}")
-    print(f"前端: cd {FRONTEND_DIR} && {frontend_cmd_str}")
-    print("按 Ctrl+C 可同时关闭两个服务\n")
+def _needs_install() -> bool:
+    if not _INSTALL_MARKER.is_file():
+        return True
+    deps_mtime = max(
+        _newest_mtime(FRONTEND_DIR / "package.json"),
+        _newest_mtime(FRONTEND_DIR / "package-lock.json"),
+    )
+    return deps_mtime > _INSTALL_MARKER.stat().st_mtime
 
-    # shell=False + argv 列表; 不使用环境变量继承 PATH 即可
-    procs = [
-        subprocess.Popen(
-            backend_argv,
-            cwd=ROOT,
-            shell=False,
-            text=True,
-        ),
-        subprocess.Popen(
-            frontend_argv,
-            cwd=FRONTEND_DIR,
-            shell=False,
-            text=True,
-        ),
-    ]
 
-    first_exit_code = 0
-    first_exited_label: str | None = None
-    # 用户主动 Ctrl+C 时 (或 KeyboardInterrupt) 不视为失败,
-    # 即使被 terminate() 杀掉的子进程返回非零退出码也忽略.
-    interrupted_by_user = False
-
-    try:
-        # 任一子进程退出则整体停止
-        while True:
-            for label, proc in (("backend", procs[0]), ("frontend", procs[1])):
-                rc = proc.poll()
-                if rc is not None:
-                    first_exit_code = rc
-                    first_exited_label = label
-                    print(
-                        f"{label} 进程已退出 (code={rc}), 停止全部服务..."
-                    )
-                    raise _ChildExited
-            time.sleep(0.5)
-    except _ChildExited:
-        # 子进程意外退出: 不设置 interrupted_by_user, 让非零退出码透传出去
-        print("\n正在关闭服务...")
-    except KeyboardInterrupt:
-        # 只有真正的 SIGINT 才把这次关闭视为成功
-        interrupted_by_user = True
-        print("\n正在关闭服务...")
-    finally:
-        for proc in procs:
-            if proc.poll() is None:
-                proc.terminate()
-        # 等待优雅退出, 超时则强制结束
-        for label, proc in (("backend", procs[0]), ("frontend", procs[1])):
-            try:
-                rc = proc.wait(timeout=5)
-                # 如果有非零退出码但 first_exit_code 还没记录下来, 保留下来
-                if rc != 0 and first_exited_label is None:
-                    first_exit_code = rc
-                    first_exited_label = label
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                try:
-                    proc.wait(timeout=2)
-                except subprocess.TimeoutExpired:
-                    pass
-                if first_exited_label is None:
-                    first_exit_code = -9
-                    first_exited_label = label
-        # 清理残留的 __pycache__ 字节码缓存
-        clean_pycache(ROOT)
-
-    if interrupted_by_user:
-        # 用户主动中断 (Ctrl+C) → 视为正常退出, 忽略子进程退出码
-        print("已全部关闭.")
-        return 0
-    if first_exit_code != 0:
-        print(
-            f"有进程异常退出 ({first_exited_label}, code={first_exit_code})"
+def _run(argv: list[str], cwd: Path) -> None:
+    print(f"$ {' '.join(argv)}  (cwd={cwd})")
+    # argv 只由静态参数与 shutil.which 解析出的绝对路径组成, 无外部输入,
+    # 且 shell=False, 不存在命令注入; nosemgrep 抑制审计规则的误报.
+    result = subprocess.run(argv, cwd=cwd, shell=False)  # nosemgrep
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"命令失败 (code={result.returncode}): {' '.join(argv)}"
         )
-    else:
-        print("已全部关闭.")
-    return first_exit_code
+
+
+def _ensure_frontend() -> None:
+    if not _needs_rebuild():
+        print(f"前端产物已是最新, 复用 {OUTPUT_DIR}")
+        return
+    print("未检测到可用前端产物, 开始构建...")
+    npm = _resolve_executable("npm")
+    if _needs_install():
+        _run([npm, "ci"], FRONTEND_DIR)
+    _run([npm, "run", "generate"], FRONTEND_DIR)
+
+
+def _run_server() -> int:
+    print("== Chathook 启动 ==")
+    print(f"监听: http://{HOST}:{PORT}")
+    print("按 Ctrl+C 可关闭服务")
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=False, log_level="info")
+    return 0
 
 
 if __name__ == "__main__":
-    sys.exit(run_dev())
+    try:
+        _ensure_frontend()
+    except (FileNotFoundError, RuntimeError) as exc:
+        print(f"前端构建失败: {exc}")
+        sys.exit(1)
+    sys.exit(_run_server())

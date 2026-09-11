@@ -55,28 +55,25 @@ Chathook 是一个 **聊天消息 Webhook 中转站**，用于接收统一格式
 # 1. 安装后端依赖
 uv sync
 
-# 2. 安装前端依赖
-cd dashboard
-npm install
-cd ..
-
-# 3. 一键启动后端 + 前端
+# 2. 一键启动（首次会自动安装前端依赖并构建，之后复用已有产物）
 uv run python main.py
 ```
 
 启动后访问：
-- 前端面板：http://localhost:3000
+- 前端面板：http://localhost:8000
 - 后端 API：http://localhost:8000
 - 健康检查：http://localhost:8000/health
+
+> 前端由同一个 FastAPI 进程在 `8000` 端口以静态文件方式提供；当 `dashboard/app`、`nuxt.config.ts` 或依赖清单变更时会自动重新构建。
 
 ### 分别启动
 
 ```bash
 # 终端 1 - 后端（热重载）
 uv sync
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
-# 终端 2 - 前端
+# 终端 2 - 前端（开发服务器，自动把 API 代理到 8000）
 cd dashboard
 npm install
 npm run dev

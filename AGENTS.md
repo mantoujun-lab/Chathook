@@ -29,7 +29,7 @@
 
 ```
 Chathook/
-├── main.py                     # FastAPI app entry point + 一键启动
+├── main.py                     # FastAPI app entry point + 单进程启动器 (按需构建并托管前端)
 ├── src/                        # Backend Python package
 │   ├── __init__.py
 │   ├── chat/                   # Channel-agnostic abstractions
@@ -126,9 +126,9 @@ Outbound 列表示出站方向（从 Chathook 发送到该平台）是否已经�
 uv sync
 
 # Run dev server (with hot reload)
-uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn main:app --reload --host 127.0.0.1 --port 8000
 
-# Or start backend + frontend together (one-key dev)
+# Or build the frontend on demand and serve frontend + backend on 127.0.0.1:8000
 uv run python main.py
 
 # Run tests
