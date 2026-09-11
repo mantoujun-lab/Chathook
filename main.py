@@ -9,6 +9,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -44,13 +45,16 @@ def health() -> dict[str, str]:
 
 
 def _resolve_spa_file(full_path: str) -> Path:
-    """把前端路由解析为产物文件, 越界或缺失时回退到 index.html."""
-    candidate = (OUTPUT_DIR / full_path).resolve()
-    try:
-        candidate.relative_to(OUTPUT_DIR.resolve())
-    except ValueError:
+    """把前端路由解析为产物文件, 越界或缺失时回退到 index.html.
+
+    先用 ``realpath`` 规范化 (消除 ``..`` 并解析符号链接), 再校验结果仍位于
+    产物目录内; 只有通过前缀检查的路径才会被访问, 避免目录穿越.
+    """
+    root = os.path.realpath(OUTPUT_DIR)
+    candidate = os.path.realpath(os.path.join(root, full_path))
+    if not candidate.startswith(root + os.sep):
         return INDEX_FILE
-    return candidate if candidate.is_file() else INDEX_FILE
+    return Path(candidate) if os.path.isfile(candidate) else INDEX_FILE
 
 
 def _mount_static(app: FastAPI) -> None:

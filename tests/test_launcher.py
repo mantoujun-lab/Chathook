@@ -85,7 +85,8 @@ def test_resolve_spa_file_returns_existing_file(frontend: Path) -> None:
     _touch(frontend / ".output" / "public" / "index.html", 100)
     _touch(frontend / ".output" / "public" / "logo.svg", 100)
 
-    assert main._resolve_spa_file("logo.svg") == frontend / ".output" / "public" / "logo.svg"
+    expected = (frontend / ".output" / "public" / "logo.svg").resolve()
+    assert main._resolve_spa_file("logo.svg") == expected
 
 
 def test_spa_fallback_rejects_unknown_api_path() -> None:
