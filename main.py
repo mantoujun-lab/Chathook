@@ -48,11 +48,12 @@ def _mount_static(app: FastAPI) -> None:
 
     @app.get("/{full_path:path}", include_in_schema=False)
     def spa_fallback(full_path: str) -> FileResponse:
-        candidate = (OUTPUT_DIR / full_path).resolve()
+        base_dir = OUTPUT_DIR.resolve()
         try:
-            candidate.relative_to(OUTPUT_DIR.resolve())
+            candidate = (base_dir / full_path).resolve()
+            candidate.relative_to(base_dir)
         except ValueError:
-            candidate = INDEX_FILE
+            return FileResponse(INDEX_FILE)
         if candidate.is_file():
             return FileResponse(candidate)
         return FileResponse(INDEX_FILE)
