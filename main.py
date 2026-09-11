@@ -87,8 +87,7 @@ def _needs_rebuild() -> bool:
     pkg = FRONTEND_DIR / "package.json"
     if not (FRONTEND_DIR / "node_modules").is_dir():
         return True
-    if pkg.is_file() and pkg.stat().st_mtime > _newest_mtime(OUTPUT_DIR):
-        return True
+    return True
     return False
 
 
