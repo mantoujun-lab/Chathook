@@ -17,6 +17,16 @@ export default defineNuxtConfig({
   icon: {
     localApiEndpoint: "/_nuxt_icon",
   },
+  // 主题模式: Nuxt UI 已自动注册 @nuxtjs/color-mode, 这里显式声明默认值:
+  //   - preference: "system" -> 首次访问跟随操作系统的 prefers-color-scheme
+  //   - fallback:   "light"   -> 系统主题无法探测时回退到浅色
+  //   - classSuffix: ""       -> 直接在 <html> 上加 `light`/`dark` 类, 方便 Tailwind 的 dark: 选择器工作
+  // 用户在 UI 上手动切换 system/light/dark 后, @nuxtjs/color-mode 会写入 localStorage 并在下一次访问自动恢复.
+  colorMode: {
+    preference: "system",
+    fallback: "light",
+    classSuffix: "",
+  },
   compatibilityDate: "2025-08-14",
   devtools: { enabled: true },
   typescript: { strict: true },
