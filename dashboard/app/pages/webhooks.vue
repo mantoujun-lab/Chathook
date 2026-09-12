@@ -153,7 +153,7 @@ async function toggleEnabled(w: WebhookConfig, enabled: boolean) {
         <template #name-cell="{ row }">
           <div>
             <div class="font-medium">{{ row.original.name }}</div>
-            <div class="text-xs text-gray-500">{{ row.original.id }}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">{{ row.original.id }}</div>
           </div>
         </template>
         <template #platform-cell="{ row }">
@@ -187,14 +187,14 @@ async function toggleEnabled(w: WebhookConfig, enabled: boolean) {
           >删除</UButton>
         </template>
       </UTable>
-      <p v-else class="text-gray-500">暂无配置</p>
+      <p v-else class="text-gray-500 dark:text-gray-400">暂无配置</p>
     </UCard>
 
-    <UCard variant="soft" class="text-sm text-gray-600">
+    <UCard variant="soft" class="text-sm text-gray-600 dark:text-gray-300">
       💡 数据已通过后端接口
-      <code class="px-1 rounded bg-gray-200">/api/webhooks</code>
+      <code class="px-1 rounded bg-gray-200 dark:bg-gray-800">/api/webhooks</code>
       读取与写入, 存储于
-      <code class="px-1 rounded bg-gray-200">data/webhooks.json</code>.
+      <code class="px-1 rounded bg-gray-200 dark:bg-gray-800">data/webhooks.json</code>.
     </UCard>
   </div>
 </template>

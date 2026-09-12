@@ -122,11 +122,11 @@ async function send() {
       }`"
     />
 
-    <UCard variant="soft" class="text-sm text-gray-600">
+    <UCard variant="soft" class="text-sm text-gray-600 dark:text-gray-300">
       💡 Webhook 列表已从后端加载
-      <code class="px-1 rounded bg-gray-200">/api/webhooks</code>.
+      <code class="px-1 rounded bg-gray-200 dark:bg-gray-800">/api/webhooks</code>.
       发送功能待后端适配器实现后接通
-      <code class="px-1 rounded bg-gray-200">POST /api/send</code>.
+      <code class="px-1 rounded bg-gray-200 dark:bg-gray-800">POST /api/send</code>.
     </UCard>
   </div>
 </template>
