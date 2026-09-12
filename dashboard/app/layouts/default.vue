@@ -10,13 +10,11 @@
         <UButton to="/webhooks" variant="ghost" color="neutral" size="sm">Webhook 配置</UButton>
         <!-- 主题切换: 三态(system/light/dark) + 快速两态按钮 -->
         <!-- ClientOnly 包裹避免 hydration mismatch (@nuxtjs/color-mode 在客户端初始化) -->
+        <!-- 注: <UColorModeSelect /> 内部硬编码了 items (见 @nuxt/ui ColorModeSelect.vue 第 63-67 行),
+             props 中未声明 items, 外部传入的 :items 会被内部覆盖;
+             选项文案来自 useLocale(), 由 <UApp :locale="zh_cn"> 注入为 "系统 / 浅色 / 深色". -->
         <ClientOnly>
           <UColorModeSelect
-            :items="[
-              { label: '系统', value: 'system' },
-              { label: '浅色', value: 'light' },
-              { label: '深色', value: 'dark' },
-            ]"
             size="sm"
             color="neutral"
             variant="outline"
