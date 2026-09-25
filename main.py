@@ -35,7 +35,7 @@ _FRONTEND_INPUTS = ("app", "nuxt.config.ts", "package.json", "package-lock.json"
 # npm ci 后写入的依赖安装标记, 用于判断 node_modules 是否与依赖清单一致
 _INSTALL_MARKER = FRONTEND_DIR / "node_modules" / ".package-lock.json"
 
-app = FastAPI(title="Chathook", version="1.1.0")
+app = FastAPI(title="Chathook", version="1.1.1")
 app.include_router(webhook_router)
 
 
