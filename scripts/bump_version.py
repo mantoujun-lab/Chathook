@@ -70,41 +70,51 @@ def replace_in_file(path: Path, pattern: str, replacement: str) -> bool:
     return bool(n)
 
 
+def resolve_executable(name: str) -> str:
+    """解析可执行文件的绝对路径, 找不到时退出.
+
+    Windows 上 ``subprocess`` 不会为无后缀的名字补全 ``.cmd``, 因此必须先用
+    ``shutil.which`` 解析 (例如 ``npm`` -> ``npm.cmd``), 否则会抛
+    ``FileNotFoundError``.
+    """
+    resolved = shutil.which(name)
+    if resolved is None:
+        sys.exit(f"未在 PATH 中找到 {name!r}, 请确认它已安装并可用.")
+    return resolved
+
+
 def bump_backend(version: str) -> None:
     """更新后端三处版本并同步 uv.lock."""
     replace_in_file(ROOT / "pyproject.toml", r'^version = "[\d.]+"', f'version = "{version}"')
     replace_in_file(ROOT / "src" / "__init__.py", r'__version__ = "[\d.]+"', f'__version__ = "{version}"')
     replace_in_file(ROOT / "main.py", r'version="[\d.]+"', f'version="{version}"')
     print(f"[后端] 已更新为 {version}, 正在同步 uv.lock ...")
-    subprocess.run(["uv", "lock"], cwd=ROOT, check=True)
+    uv = resolve_executable("uv")
+    subprocess.run([uv, "lock"], cwd=ROOT, check=True, shell=False)
 
 
 def bump_frontend(version: str) -> None:
-    """通过 npm version 更新 package.json 与 package-lock.json.
+    r"""通过 npm version 更新 package.json 与 package-lock.json.
 
     安全注意:
       - 所有 argv 元素在传入 subprocess.run 前都做了静态/格式校验, 避免
         静态审计工具 (opengrep) 误报 dangerous-subprocess-use-audit.
-      - argv[0] ("npm"), argv[1] ("version"), argv[3] ("--no-git-tag-version")
-        是全静态字面量; argv[2] (用户传入的版本号) 通过严格的 x.y.z 正则
-        白名单 (^\d+\.\d+\.\d+$) 校验, 不包含任何 shell 元字符.
+      - argv[0] 是经 shutil.which 解析出的绝对路径 (Windows 上为 npm.cmd),
+        argv[1] ("version") 与 argv[3] ("--no-git-tag-version") 是全静态
+        字面量; argv[2] (用户传入的版本号) 通过严格的 x.y.z 正则白名单
+        (^\d+\.\d+\.\d+$) 校验, 不包含任何 shell 元字符.
       - subprocess.run shell=False, 不会经过 cmd.exe/bash 展开.
     """
     # 白名单校验 (ask() 函数已做, 此处为二次防御, 便于被其他调用方直接使用)
     if not re.fullmatch(_VERSION_RE, version):
         raise ValueError(f"前端版本格式无效: {version!r}, 应为 x.y.z 形式")
     print(f"[前端] 正在更新为 {version} ...")
-    # 先确认 npm 可用, 找不到就提前报错避免后续奇怪错误
-    if shutil.which("npm.cmd" if sys.platform == "win32" else "npm") is None:
-        sys.exit("未在 PATH 中找到 npm, 请先安装 Node.js 并确保 npm 可用.")
-    # 全字面量组装: 用字符串字面量 + format 传已校验变量, 让静态分析更容易
-    # 确认格式是 "仅含数字+点" 的 x.y.z, 再传入 subprocess
-    safe_version = f"{version}"  # 占位: 变量已通过正则白名单验证
-    # 显式用 f-string 把字面量和校验后参数组合成固定 4 元组
+    # 显式解析绝对路径: Windows 上 npm 只有 npm.cmd, subprocess 无法自动补全
+    npm = resolve_executable("npm.cmd" if sys.platform == "win32" else "npm")
     argv: tuple[str, str, str, str] = (
-        "npm",
+        npm,
         "version",
-        safe_version,
+        version,
         "--no-git-tag-version",
     )
     subprocess.run(argv, cwd=DASHBOARD, check=True, shell=False)

@@ -20,12 +20,14 @@ bump = "bump_version:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+# src/chat、src/webhook 通过 sources=[src] 去掉 src 前缀; scripts/bump_version.py
+# 通过 sources=[scripts] 去掉 scripts 前缀, 使 bump_version 成为顶层模块.
+# 相比 force-include, 这种方式在 editable 安装下不会把脚本复制到 site-packages,
+# 因此 `uv run bump` 始终执行最新源码, 修改脚本后无需重新安装.
 [tool.hatch.build.targets.wheel]
-packages = ["src/chat", "src/webhook"]
-
-# 将 scripts/bump_version.py 作为顶层模块打入安装包, 供 `uv run bump` 使用
-[tool.hatch.build.targets.wheel.force-include]
-"scripts/bump_version.py" = "bump_version.py"
+only-include = ["src/chat", "src/webhook", "scripts/bump_version.py"]
+sources = ["src", "scripts"]
+dev-mode-dirs = ["src", "scripts"]
 
 [dependency-groups]
 dev = [
